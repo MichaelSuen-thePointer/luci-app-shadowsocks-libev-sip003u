@@ -8,17 +8,17 @@ matching `shadowsocks-libev` package and init script.
 
 - SDK: `openwrt-sdk-23.05.5-mediatek-mt7622_gcc-12.3.0_musl.Linux-x86_64`
 - Target: `aarch64_cortex-a53` / musl
-- Source repo example: `/home/sunmingqi/shadowsocks-libev`
+- Source repository: `https://github.com/MichaelSuen-thePointer/shadowsocks-libev`
 - Feature branch: `feature/sip003u`
 - Feature commit: `9217f6e08b31c5ded469f99f59e0b863bb78c447`
 - Local feed path: `local-feed/net/shadowsocks-libev`
 
 ## Key Package Changes
 
-- Point `PKG_SOURCE_URL` to the local git checkout, for example:
+- Point `PKG_SOURCE_URL` to the GitHub repository, for example:
 
 ```make
-PKG_SOURCE_URL:=file:///home/sunmingqi/shadowsocks-libev
+PKG_SOURCE_URL:=https://github.com/MichaelSuen-thePointer/shadowsocks-libev.git
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_VERSION:=9217f6e08b31c5ded469f99f59e0b863bb78c447
 PKG_MIRROR_HASH:=skip

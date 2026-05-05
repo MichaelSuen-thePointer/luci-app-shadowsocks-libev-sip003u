@@ -3,3 +3,4 @@
 openwrt-sdk-*/
 work/
 build-*.log
+**/__pycache__/*
