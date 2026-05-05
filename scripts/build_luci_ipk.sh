@@ -14,6 +14,12 @@ src-git luci https://git.openwrt.org/project/luci.git^63ba3cba5b7bfb803a875d4d8f
 EOF
 
 ./scripts/feeds update local base packages luci
+
+if [ ! -f "$feed/applications/luci-app-shadowsocks-libev/Makefile" ]; then
+	"$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/prepare_luci_local_feed.sh" "$feed" "$sdk"
+	./scripts/feeds update local
+fi
+
 ./scripts/feeds install -p local luci-app-shadowsocks-libev
 
 cat > .config <<'EOF'

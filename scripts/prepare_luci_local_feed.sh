@@ -1,7 +1,8 @@
 #!/bin/sh
 set -eu
 
-feed="${1:?usage: prepare_luci_local_feed.sh <local-feed-dir>}"
+feed="${1:?usage: prepare_luci_local_feed.sh <local-feed-dir> [sdk-dir]}"
+sdk="${2:-}"
 version="${LUCI_PLUGIN_MODE_VERSION:-git-25.222.75657-7ce34fe+sip003u}"
 
 raw_luci="https://raw.githubusercontent.com/openwrt/luci/openwrt-23.05"
@@ -14,14 +15,19 @@ mkdir -p "$pkg/htdocs/luci-static/resources"
 mkdir -p "$pkg/root/usr/share/luci/menu.d"
 mkdir -p "$pkg/root/usr/share/rpcd/acl.d"
 
-curl -fsSL "$raw_luci/luci.mk" -o "$feed/luci.mk"
-curl -fsSL "$raw_luci/applications/luci-app-shadowsocks-libev/Makefile" -o "$pkg/Makefile"
-curl -fsSL "$raw_luci/applications/luci-app-shadowsocks-libev/htdocs/luci-static/resources/shadowsocks-libev.js" -o "$pkg/htdocs/luci-static/resources/shadowsocks-libev.js"
-curl -fsSL "$raw_luci/applications/luci-app-shadowsocks-libev/htdocs/luci-static/resources/view/shadowsocks-libev/instances.js" -o "$pkg/htdocs/luci-static/resources/view/shadowsocks-libev/instances.js"
-curl -fsSL "$raw_luci/applications/luci-app-shadowsocks-libev/htdocs/luci-static/resources/view/shadowsocks-libev/rules.js" -o "$pkg/htdocs/luci-static/resources/view/shadowsocks-libev/rules.js"
-curl -fsSL "$raw_luci/applications/luci-app-shadowsocks-libev/htdocs/luci-static/resources/view/shadowsocks-libev/servers.js" -o "$pkg/htdocs/luci-static/resources/view/shadowsocks-libev/servers.js"
-curl -fsSL "$raw_luci/applications/luci-app-shadowsocks-libev/root/usr/share/luci/menu.d/luci-app-shadowsocks-libev.json" -o "$pkg/root/usr/share/luci/menu.d/luci-app-shadowsocks-libev.json"
-curl -fsSL "$raw_luci/applications/luci-app-shadowsocks-libev/root/usr/share/rpcd/acl.d/luci-app-shadowsocks-libev.json" -o "$pkg/root/usr/share/rpcd/acl.d/luci-app-shadowsocks-libev.json"
+if [ -n "$sdk" ] && [ -d "$sdk/feeds/luci/applications/luci-app-shadowsocks-libev" ]; then
+	cp "$sdk/feeds/luci/luci.mk" "$feed/luci.mk"
+	cp -a "$sdk/feeds/luci/applications/luci-app-shadowsocks-libev/." "$pkg/"
+else
+	curl -fsSL "$raw_luci/luci.mk" -o "$feed/luci.mk"
+	curl -fsSL "$raw_luci/applications/luci-app-shadowsocks-libev/Makefile" -o "$pkg/Makefile"
+	curl -fsSL "$raw_luci/applications/luci-app-shadowsocks-libev/htdocs/luci-static/resources/shadowsocks-libev.js" -o "$pkg/htdocs/luci-static/resources/shadowsocks-libev.js"
+	curl -fsSL "$raw_luci/applications/luci-app-shadowsocks-libev/htdocs/luci-static/resources/view/shadowsocks-libev/instances.js" -o "$pkg/htdocs/luci-static/resources/view/shadowsocks-libev/instances.js"
+	curl -fsSL "$raw_luci/applications/luci-app-shadowsocks-libev/htdocs/luci-static/resources/view/shadowsocks-libev/rules.js" -o "$pkg/htdocs/luci-static/resources/view/shadowsocks-libev/rules.js"
+	curl -fsSL "$raw_luci/applications/luci-app-shadowsocks-libev/htdocs/luci-static/resources/view/shadowsocks-libev/servers.js" -o "$pkg/htdocs/luci-static/resources/view/shadowsocks-libev/servers.js"
+	curl -fsSL "$raw_luci/applications/luci-app-shadowsocks-libev/root/usr/share/luci/menu.d/luci-app-shadowsocks-libev.json" -o "$pkg/root/usr/share/luci/menu.d/luci-app-shadowsocks-libev.json"
+	curl -fsSL "$raw_luci/applications/luci-app-shadowsocks-libev/root/usr/share/rpcd/acl.d/luci-app-shadowsocks-libev.json" -o "$pkg/root/usr/share/rpcd/acl.d/luci-app-shadowsocks-libev.json"
+fi
 
 python3 "$repo_root/scripts/patch_luci_plugin_mode.py" "$pkg/htdocs/luci-static/resources/shadowsocks-libev.js"
 

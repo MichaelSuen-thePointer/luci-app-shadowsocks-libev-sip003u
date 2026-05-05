@@ -172,7 +172,7 @@ SDK=~/work/openwrt-plugin-mode/openwrt-sdk-23.05.5-mediatek-mt7622_gcc-12.3.0_mu
 FEED=~/work/openwrt-plugin-mode/local-feed
 SS_COMMIT=9217f6e08b31c5ded469f99f59e0b863bb78c447
 
-"$REPO/scripts/prepare_luci_local_feed.sh" "$FEED"
+"$REPO/scripts/prepare_luci_local_feed.sh" "$FEED" "$SDK"
 cd "$SDK"
 ./scripts/feeds update base packages luci
 "$REPO/scripts/prepare_shadowsocks_libev_local_feed.sh" "$SDK" "$FEED" "$SS_COMMIT"
@@ -183,6 +183,11 @@ make defconfig
 make package/feeds/local/luci-app-shadowsocks-libev/compile V=s
 make package/feeds/local/shadowsocks-libev/compile V=s
 ```
+
+When an SDK path is provided, `prepare_luci_local_feed.sh` copies
+`luci-app-shadowsocks-libev` from the SDK's pinned `feeds/luci` checkout.
+Without an SDK path, it falls back to downloading the same files from the
+`openwrt-23.05` branch on GitHub.
 
 The output is under:
 
