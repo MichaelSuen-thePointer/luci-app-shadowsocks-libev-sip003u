@@ -172,9 +172,9 @@ SDK=~/work/openwrt-plugin-mode/openwrt-sdk-23.05.5-mediatek-mt7622_gcc-12.3.0_mu
 FEED=~/work/openwrt-plugin-mode/local-feed
 SS_COMMIT=9217f6e08b31c5ded469f99f59e0b863bb78c447
 
-"$REPO/scripts/prepare_luci_local_feed.sh" "$FEED" "$SDK"
 cd "$SDK"
 ./scripts/feeds update base packages luci
+"$REPO/scripts/prepare_luci_local_feed.sh" "$FEED" "$SDK"
 "$REPO/scripts/prepare_shadowsocks_libev_local_feed.sh" "$SDK" "$FEED" "$SS_COMMIT"
 ./scripts/feeds update local
 ./scripts/feeds install -p local luci-app-shadowsocks-libev shadowsocks-libev

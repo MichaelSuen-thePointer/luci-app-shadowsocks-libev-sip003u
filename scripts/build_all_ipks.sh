@@ -18,7 +18,7 @@ EOF
 
 ./scripts/feeds update base packages luci
 
-"$repo_root/scripts/prepare_luci_local_feed.sh" "$feed"
+"$repo_root/scripts/prepare_luci_local_feed.sh" "$feed" "$sdk"
 "$repo_root/scripts/prepare_shadowsocks_libev_local_feed.sh" "$sdk" "$feed" "$source_version"
 
 ./scripts/feeds update local
