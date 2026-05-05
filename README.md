@@ -124,7 +124,12 @@ Cannot find pcre library. Configure --with-pcre=DIR
 ```
 
 For this SDK, the `ss-rules` package should depend on `+ip-tiny`, not `+ip`.
-Also make sure all three ucode templates are installed:
+`ss-rules` is unrelated to `plugin_mode`; it is the optional firewall rule
+generator used by `ss-redir` setups. Building it can pull in a much larger set
+of unrelated packages, including `firewall4`, nftables-related libraries,
+`iproute2`, `ucode`, and kernel firewall modules.
+
+When `ss-rules` is built, make sure all three ucode templates are installed:
 
 ```text
 files/ss-rules/ss-rules.uc
@@ -164,6 +169,13 @@ FEED=~/work/openwrt-plugin-mode/local-feed
 "$REPO/scripts/build_all_ipks.sh" "$SDK" "$FEED"
 ```
 
+By default this does not build `shadowsocks-libev-ss-rules`. Enable it only when
+you need the packaged firewall rule generator:
+
+```sh
+BUILD_SS_RULES=1 "$REPO/scripts/build_all_ipks.sh" "$SDK" "$FEED"
+```
+
 Manual path:
 
 ```sh
@@ -178,10 +190,26 @@ cd "$SDK"
 "$REPO/scripts/prepare_shadowsocks_libev_local_feed.sh" "$SDK" "$FEED" "$SS_COMMIT"
 ./scripts/feeds update local
 ./scripts/feeds install -p local luci-app-shadowsocks-libev shadowsocks-libev
-./scripts/feeds install pcre2 c-ares libev mbedtls libsodium iproute2 firewall4 resolveip ucode ucode-mod-fs
+./scripts/feeds install pcre2 c-ares libev mbedtls libsodium
+cat > .config <<'EOF'
+CONFIG_PACKAGE_luci-app-shadowsocks-libev=m
+CONFIG_PACKAGE_shadowsocks-libev-config=m
+CONFIG_PACKAGE_shadowsocks-libev-ss-local=m
+CONFIG_PACKAGE_shadowsocks-libev-ss-redir=m
+CONFIG_PACKAGE_shadowsocks-libev-ss-server=m
+CONFIG_PACKAGE_shadowsocks-libev-ss-tunnel=m
+EOF
 make defconfig
 make package/feeds/local/luci-app-shadowsocks-libev/compile V=s
 make package/feeds/local/shadowsocks-libev/compile V=s
+```
+
+To include `ss-rules` in the manual path, also install its dependencies and add
+the package selection before `make defconfig`:
+
+```sh
+./scripts/feeds install iproute2 firewall4 resolveip ucode ucode-mod-fs
+echo 'CONFIG_PACKAGE_shadowsocks-libev-ss-rules=m' >> .config
 ```
 
 When an SDK path is provided, `prepare_luci_local_feed.sh` copies
@@ -202,9 +230,14 @@ luci-app-shadowsocks-libev_git-25.222.75657-7ce34fe+sip003u_all.ipk
 shadowsocks-libev-config_3.3.6+sip003u-1_aarch64_cortex-a53.ipk
 shadowsocks-libev-ss-local_3.3.6+sip003u-1_aarch64_cortex-a53.ipk
 shadowsocks-libev-ss-redir_3.3.6+sip003u-1_aarch64_cortex-a53.ipk
-shadowsocks-libev-ss-rules_3.3.6+sip003u-1_aarch64_cortex-a53.ipk
 shadowsocks-libev-ss-server_3.3.6+sip003u-1_aarch64_cortex-a53.ipk
 shadowsocks-libev-ss-tunnel_3.3.6+sip003u-1_aarch64_cortex-a53.ipk
+```
+
+If `BUILD_SS_RULES=1` is set, this additional package is expected:
+
+```text
+shadowsocks-libev-ss-rules_3.3.6+sip003u-1_aarch64_cortex-a53.ipk
 ```
 
 Verify the runtime binaries are for the target:
@@ -213,7 +246,7 @@ Verify the runtime binaries are for the target:
 file "$SDK"/build_dir/target-aarch64_cortex-a53_musl/shadowsocks-libev-3.3.6+sip003u/.pkgdir/shadowsocks-libev-ss-local/usr/bin/ss-local
 ```
 
-Verify `ss-rules` contains the include files:
+If `ss-rules` is enabled, verify it contains the include files:
 
 ```sh
 tar -xOf "$SDK"/bin/packages/aarch64_cortex-a53/local/shadowsocks-libev-ss-rules_3.3.6+sip003u-1_aarch64_cortex-a53.ipk ./data.tar.gz \
@@ -224,14 +257,15 @@ tar -xOf "$SDK"/bin/packages/aarch64_cortex-a53/local/shadowsocks-libev-ss-rules
 ### Runtime Verification
 
 Install or upgrade the LuCI package plus the matching runtime packages you need.
-For a redir setup with rules, that usually means at least:
+`plugin_mode` support needs the LuCI package, the config package with init-script
+support, and whichever `ss-*` binary package your setup actually uses. It does
+not require `shadowsocks-libev-ss-rules`.
 
 ```sh
 opkg install \
   ./luci-app-shadowsocks-libev_git-25.222.75657-7ce34fe+sip003u_all.ipk \
   ./shadowsocks-libev-config_3.3.6+sip003u-1_aarch64_cortex-a53.ipk \
-  ./shadowsocks-libev-ss-redir_3.3.6+sip003u-1_aarch64_cortex-a53.ipk \
-  ./shadowsocks-libev-ss-rules_3.3.6+sip003u-1_aarch64_cortex-a53.ipk
+  ./shadowsocks-libev-ss-redir_3.3.6+sip003u-1_aarch64_cortex-a53.ipk
 ```
 
 Then configure a server section with `plugin_mode`.

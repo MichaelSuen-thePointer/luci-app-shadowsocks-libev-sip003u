@@ -27,7 +27,11 @@ PKG_MIRROR_HASH:=skip
 - Keep the official OpenWrt `100-Upgrade-PCRE-to-PCRE2.patch` in the local feed
   `patches/` directory.
 - Link/install build dependencies such as `pcre2`, `c-ares`, `libev`, `mbedtls`,
-  `libsodium`, `firewall4`, `resolveip`, and `iproute2`.
+  and `libsodium`.
+- `shadowsocks-libev-ss-rules` is unrelated to `plugin_mode`; build it only
+  when packaging the optional firewall rule generator. It can pull in many
+  unrelated dependencies, including `firewall4`, nftables-related libraries,
+  `iproute2`, `ucode`, and kernel firewall modules.
 - If `+ip` is unavailable in this SDK target, use `+ip-tiny` for the `ss-rules`
   dependency.
 - Include all ucode templates required by `ss-rules`:
@@ -62,7 +66,7 @@ Verify binaries:
 file bin/packages/aarch64_cortex-a53/local/shadowsocks-libev-ss-*.ipk
 ```
 
-Verify `shadowsocks-libev-ss-rules` contains:
+If `shadowsocks-libev-ss-rules` is enabled, verify it contains:
 
 ```text
 /usr/share/ss-rules/ss-rules.uc
