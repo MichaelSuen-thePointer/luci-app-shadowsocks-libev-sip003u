@@ -1,0 +1,38 @@
+diff --git a/applications/luci-app-shadowsocks-libev/Makefile b/applications/luci-app-shadowsocks-libev/Makefile
+--- a/applications/luci-app-shadowsocks-libev/Makefile
++++ b/applications/luci-app-shadowsocks-libev/Makefile
+@@ -5,6 +5,8 @@
+ 
+ include $(TOPDIR)/rules.mk
+ 
++PKG_VERSION:=git-25.222.75657-7ce34fe+sip003u
++
+ LUCI_TITLE:=LuCI Support for shadowsocks-libev
+ LUCI_DEPENDS:=+luci-base
+ 
+diff --git a/applications/luci-app-shadowsocks-libev/htdocs/luci-static/resources/shadowsocks-libev.js b/applications/luci-app-shadowsocks-libev/htdocs/luci-static/resources/shadowsocks-libev.js
+--- a/applications/luci-app-shadowsocks-libev/htdocs/luci-static/resources/shadowsocks-libev.js
++++ b/applications/luci-app-shadowsocks-libev/htdocs/luci-static/resources/shadowsocks-libev.js
+@@ -10,6 +10,7 @@
+ 	'password',
+ 	'plugin',
+ 	'plugin_opts',
++	'plugin_mode',
+ ];
+ 
+ var names_options_client = [
+@@ -175,5 +176,14 @@
+ 		optfunc(form.Value, 'plugin', _('Plugin')).modalonly = true;
+ 
+ 		optfunc(form.Value, 'plugin_opts', _('Plugin Options')).modalonly = true;
++
++		o = optfunc(form.ListValue, 'plugin_mode', _('Plugin mode'));
++		o.value('', _('<unset>'));
++		modes.forEach(function(m) {
++			o.value(m);
++		});
++		o.default = '';
++		o.rmempty = true;
++		o.modalonly = true;
+ 	},
+ 	options_common: function(s, tab) {

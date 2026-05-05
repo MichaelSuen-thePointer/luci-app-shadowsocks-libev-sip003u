@@ -1,0 +1,5 @@
+*.ipk
+*.tar.xz
+openwrt-sdk-*/
+work/
+build-*.log

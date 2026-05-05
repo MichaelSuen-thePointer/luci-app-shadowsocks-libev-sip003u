@@ -1,0 +1,22 @@
+diff --git a/net/shadowsocks-libev/files/shadowsocks-libev.init b/net/shadowsocks-libev/files/shadowsocks-libev.init
+index 5330b87353..5106b2e9e8 100755
+--- a/net/shadowsocks-libev/files/shadowsocks-libev.init
++++ b/net/shadowsocks-libev/files/shadowsocks-libev.init
+@@ -35,6 +35,7 @@ ss_mkjson_server_conf_() {
+ 	[ -z "$password" ] || json_add_string password "$password"
+ 	[ -z "$plugin" ] || json_add_string plugin "$plugin"
+ 	[ -z "$plugin_opts" ] || json_add_string plugin_opts "$plugin_opts"
++	[ -z "$plugin_mode" ] || json_add_string plugin_mode "$plugin_mode"
+ }
+ 
+ ss_mkjson_ss_local_conf() {
+@@ -234,7 +235,8 @@ validate_common_server_options_() {
+ 		'key:string' \
+ 		"method:or($stream_methods, $aead_methods)" \
+ 		'plugin:string' \
+-		'plugin_opts:string'
++		'plugin_opts:string' \
++		'plugin_mode:or("tcp_only", "udp_only", "tcp_and_udp")'
+ }
+ 
+ validate_common_client_options_() {
