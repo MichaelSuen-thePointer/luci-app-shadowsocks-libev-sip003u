@@ -24,7 +24,7 @@ def main() -> None:
         "\n"
         "PKG_SOURCE_PROTO:=git\n"
         f"PKG_SOURCE_URL:={args.source_url}\n"
-        "PKG_SOURCE_DATE:=2026-05-05\n"
+        "PKG_SOURCE_DATE:=2026-09-04\n"
         f"PKG_SOURCE_VERSION:={args.source_version}\n"
         "PKG_MIRROR_HASH:=skip"
     )
@@ -42,11 +42,37 @@ def main() -> None:
     if count != 1:
         raise SystemExit("failed to replace PKG_SOURCE block")
 
-    text = text.replace("\t   +ip \\\n", f"\t   +{args.ss_rules_ip_dep} \\\n", 1)
+    text = text.replace("PKG_FIXUP:=autoreconf\n", "")
+    text = text.replace("PKG_INSTALL:=1\n", "PKG_INSTALL:=1\nCMAKE_INSTALL:=1\n")
+    text = text.replace(
+        "include $(INCLUDE_DIR)/package.mk\n",
+        "include $(INCLUDE_DIR)/package.mk\ninclude $(INCLUDE_DIR)/cmake.mk\n",
+        1,
+    )
+
+    text, count = re.subn(
+        r"CONFIGURE_ARGS \+= \\\n(?:\t.*\\?\n)+\n",
+        "CMAKE_OPTIONS += \\\n"
+        "\t-DWITH_STATIC=OFF \\\n"
+        "\t-DWITH_EMBEDDED_SRC=ON \\\n"
+        "\t-DBUILD_TESTING=OFF\n\n",
+        text,
+        count=1,
+    )
+    if count != 1:
+        raise SystemExit("failed to replace autotools configure options")
+
+    text, count = re.subn(
+        r"(?m)^(\s*)\+ip(\s*\\)$",
+        rf"\1+{args.ss_rules_ip_dep}\2",
+        text,
+        count=1,
+    )
+    if count != 1 and f"+{args.ss_rules_ip_dep}" not in text:
+        raise SystemExit("failed to replace the ss-rules ip dependency")
 
     args.makefile.write_text(text)
 
 
 if __name__ == "__main__":
     main()
-

@@ -1,36 +1,43 @@
-# shadowsocks-libev SIP003U Packaging Notes
+# shadowsocks-libev SIP003U packaging notes for OpenWrt 25.12
 
-These notes summarize the separate `shadowsocks-libev` package build. The LuCI
-package can be built independently, but runtime SIP003U support requires a
-matching `shadowsocks-libev` package and init script.
+## Local-feed composition
 
-## SDK Context
+OpenWrt 25.12 has removed both upstream packages used here. The preparation
+scripts reconstruct them using fixed legacy OpenWrt package commits and the
+current SDK's `luci.mk`.
 
-- SDK: `openwrt-sdk-23.05.5-mediatek-mt7622_gcc-12.3.0_musl.Linux-x86_64`
-- Target: `aarch64_cortex-a53` / musl
-- Source repository: `https://github.com/MichaelSuen-thePointer/shadowsocks-libev`
-- Feature branch: `feature/sip003u`
-- Feature commit: `9217f6e08b31c5ded469f99f59e0b863bb78c447`
-- Local feed path: `local-feed/net/shadowsocks-libev`
+The default selection includes:
 
-## Key Package Changes
-
-- Point `PKG_SOURCE_URL` to the GitHub repository, for example:
-
-```make
-PKG_SOURCE_URL:=https://github.com/MichaelSuen-thePointer/shadowsocks-libev.git
-PKG_SOURCE_PROTO:=git
-PKG_SOURCE_VERSION:=9217f6e08b31c5ded469f99f59e0b863bb78c447
-PKG_MIRROR_HASH:=skip
+```text
+luci-app-shadowsocks-libev
+shadowsocks-libev-config
+shadowsocks-libev-ss-rules
+shadowsocks-libev-ss-local
+shadowsocks-libev-ss-redir
+shadowsocks-libev-ss-server
+shadowsocks-libev-ss-tunnel
 ```
 
-- Keep the official OpenWrt `100-Upgrade-PCRE-to-PCRE2.patch` in the local feed
-  `patches/` directory.
-- Link/install build dependencies such as `pcre2`, `c-ares`, `libev`, `mbedtls`,
-  `libsodium`, `firewall4`, `resolveip`, and `iproute2`.
-- If `+ip` is unavailable in this SDK target, use `+ip-tiny` for the `ss-rules`
-  dependency.
-- Include all ucode templates required by `ss-rules`:
+LuCI has only `+luci-base` in `LUCI_DEPENDS`. The rules package retains its
+dependency on `shadowsocks-libev-ss-redir` and also depends on firewall4,
+ip-tiny, resolveip, ucode, ucode-mod-fs, the configuration package, and
+kmod-nft-tproxy.
+
+## SIP003U changes
+
+The LuCI server editor exposes `plugin_mode` with these values:
+
+```text
+tcp_only
+udp_only
+tcp_and_udp
+```
+
+The init script validates the same option and writes it to each generated
+server JSON configuration. The repository copy at
+`files/shadowsocks-libev.init` is always installed into the generated feed.
+
+The rules package includes:
 
 ```text
 files/ss-rules/ss-rules.uc
@@ -38,34 +45,30 @@ files/ss-rules/set.uc
 files/ss-rules/chain.uc
 ```
 
-Missing `set.uc` or `chain.uc` causes runtime errors such as:
+It uses `ip-tiny` rather than the removed legacy `ip` dependency.
 
-```text
-Include file not found: include("set.uc")
-```
+## Build details
 
-## Build
+For the validated x86/64 SDK:
 
 ```sh
-make package/shadowsocks-libev/compile V=s
+scripts/build_all_apks.sh \
+  /path/to/openwrt-sdk-25.12.5-x86-64_gcc-14.3.0_musl.Linux-x86_64 \
+  /path/to/local-feed
 ```
 
-Expected output path:
+The source is pinned to the `feature/sip003u` head following its 2026-09-04
+force-push:
 
-```text
-bin/packages/aarch64_cortex-a53/local/
+```make
+PKG_SOURCE_PROTO:=git
+PKG_SOURCE_URL:=https://github.com/MichaelSuen-thePointer/shadowsocks-libev.git
+PKG_SOURCE_VERSION:=d2ae22a3c85a66944535177425042307db71b5be
+PKG_MIRROR_HASH:=skip
 ```
 
-Verify binaries:
-
-```sh
-file bin/packages/aarch64_cortex-a53/local/shadowsocks-libev-ss-*.ipk
-```
-
-Verify `shadowsocks-libev-ss-rules` contains:
-
-```text
-/usr/share/ss-rules/ss-rules.uc
-/usr/share/ss-rules/set.uc
-/usr/share/ss-rules/chain.uc
-```
+The force-pushed source has migrated from autotools to CMake and uses PCRE2
+natively. The legacy `100-Upgrade-PCRE-to-PCRE2.patch` must not be applied.
+Component-specific dependencies remain precise: `ss-local` adds `libpcre2`,
+while `ss-server` adds `libcares` and `libpcre2`. Package versions are
+`25.12.5_p1-r1` for LuCI and `3.3.6_p1-r1` for the runtime package source.
