@@ -9,11 +9,9 @@ pkg_version="${SHADOWSOCKS_LIBEV_VERSION:-3.3.6_p1}"
 pkg_release="${SHADOWSOCKS_LIBEV_RELEASE:-1}"
 source_url="${SHADOWSOCKS_LIBEV_SOURCE_URL:-https://github.com/MichaelSuen-thePointer/shadowsocks-libev.git}"
 ss_rules_ip_dep="${SS_RULES_IP_DEP:-ip-tiny}"
-legacy_packages_commit="${OPENWRT_PACKAGES_LEGACY_COMMIT:-b5ed85f6e94aa08de1433272dc007550f4a28201}"
-raw_packages="https://raw.githubusercontent.com/openwrt/packages/$legacy_packages_commit/net/shadowsocks-libev"
 repo_root="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+vendor_pkg="$repo_root/vendor/openwrt-23.05/packages/net/shadowsocks-libev"
 
-src_pkg="$sdk/feeds/packages/net/shadowsocks-libev"
 pkg="$feed/net/shadowsocks-libev"
 
 if [ -z "$source_version" ]; then
@@ -23,17 +21,11 @@ fi
 
 mkdir -p "$feed/net"
 rm -rf "$pkg"
-if [ -d "$src_pkg" ]; then
-	cp -a "$src_pkg" "$pkg"
-else
-	mkdir -p "$pkg/files/ss-rules"
-	curl -fsSL "$raw_packages/Makefile" -o "$pkg/Makefile"
-	curl -fsSL "$raw_packages/README.md" -o "$pkg/README.md"
-	curl -fsSL "$raw_packages/files/shadowsocks-libev.config" -o "$pkg/files/shadowsocks-libev.config"
-	curl -fsSL "$raw_packages/files/ss-rules/ss-rules.uc" -o "$pkg/files/ss-rules/ss-rules.uc"
-	curl -fsSL "$raw_packages/files/ss-rules/set.uc" -o "$pkg/files/ss-rules/set.uc"
-	curl -fsSL "$raw_packages/files/ss-rules/chain.uc" -o "$pkg/files/ss-rules/chain.uc"
-fi
+[ -f "$vendor_pkg/Makefile" ] || {
+	echo "missing vendored shadowsocks-libev package at $vendor_pkg" >&2
+	exit 1
+}
+cp -a "$vendor_pkg" "$pkg"
 
 # The force-pushed SIP003U branch is CMake based and already uses PCRE2.
 rm -f "$pkg/patches/100-Upgrade-PCRE-to-PCRE2.patch"

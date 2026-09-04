@@ -2,9 +2,10 @@
 
 ## Local-feed composition
 
-OpenWrt 25.12 has removed both upstream packages used here. The preparation
-scripts reconstruct them using fixed legacy OpenWrt package commits and the
-current SDK's `luci.mk`.
+OpenWrt 25.12 has removed both upstream packages used here. Their files from
+the fixed legacy OpenWrt commits are checked into `vendor/openwrt-23.05/`.
+The preparation scripts copy these local files and combine them with the
+current SDK's `luci.mk`; they do not download historical package files.
 
 The default selection includes:
 

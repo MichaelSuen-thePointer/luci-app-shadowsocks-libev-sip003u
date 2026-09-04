@@ -11,6 +11,11 @@ creates a local feed from the last pinned OpenWrt 23.05 package layouts, while
 using the `luci.mk` and all dependency feeds pinned by the selected 25.12 SDK.
 OpenWrt 25.12 uses `.apk` packages rather than `.ipk` packages.
 
+The legacy package files are vendored below `vendor/openwrt-23.05/`. Local-feed
+preparation never downloads those historical files at build time. Network
+access is still needed for normal SDK feed updates and the pinned SIP003U
+program source.
+
 ## Package model
 
 The default build produces these local packages:
@@ -141,6 +146,9 @@ ucode-mod-fs
 The source commit is the `feature/sip003u` head after its 2026-09-04
 force-push. The build pins the commit rather than the moving branch name for
 repeatability.
+
+The files taken from the two legacy commits are stored under
+`vendor/openwrt-23.05/`; see its `README.md` for provenance.
 
 The custom versions use `_p1`, which is valid in OpenWrt 25.12's APK version
 syntax. The old `+sip003u` suffix is not accepted by its APK tooling.
