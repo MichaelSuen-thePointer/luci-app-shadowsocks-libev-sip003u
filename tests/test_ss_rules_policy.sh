@@ -148,8 +148,110 @@ test_legacy_cleanup() (
 	rmdir "$test_dir" || fail "test directory is not empty"
 )
 
+test_redir_semantics() (
+	redir_type=ss_redir
+	redir_disabled=0
+	redir_mode=tcp_and_udp
+	redir_port=12345
+	ss_rules_redir_tcp_sections=" redir-main"
+	ss_rules_redir_udp_sections=" redir-main"
+	logger() { :; }
+	config_get() {
+		case "$3" in
+			TYPE) eval "$1=\$redir_type" ;;
+			mode) eval "$1=\$redir_mode" ;;
+			local_port) eval "$1=\$redir_port" ;;
+		esac
+	}
+	config_get_bool() {
+		eval "$1=\$redir_disabled"
+	}
+	validate_ss_redir_section() {
+		[ "$redir_port" -ge 1 ] 2>/dev/null \
+			&& [ "$redir_port" -le 65535 ] 2>/dev/null
+	}
+
+	ss_rules_redir_port redir-main tcp || fail "valid TCP redir was rejected"
+	[ "$ssrules_redir_port" = 12345 ] || fail "TCP redir port was not returned"
+	ss_rules_redir_port redir-main udp || fail "valid UDP redir was rejected"
+
+	redir_mode=tcp_only
+	! ss_rules_redir_port redir-main udp || fail "UDP accepted a TCP-only redir"
+	redir_mode=tcp_and_udp
+	redir_disabled=1
+	! ss_rules_redir_port redir-main tcp || fail "disabled redir was accepted"
+	redir_disabled=0
+	redir_port=70000
+	! ss_rules_redir_port redir-main tcp || fail "invalid redir port was accepted"
+	redir_port=12345
+	ss_rules_redir_tcp_sections=
+	! ss_rules_redir_port redir-main tcp || fail "unprepared redir was accepted"
+)
+
+test_apply_failure_disables_rules() (
+	test_dir="$(mktemp -d /tmp/ssrules-failure-test.XXXXXX)" || exit 1
+	ssrules_nft="$test_dir/active.nft"
+	reset_nft=0
+	reset_policy=0
+	logger() { :; }
+	ss_rules_nft_gen() {
+		return 1
+	}
+	ss_rules_nft_reset() { reset_nft=1; }
+	ss_rules_policy_reset() { reset_policy=1; }
+	echo old >"$ssrules_nft"
+
+	set +e
+	ss_rules
+	rc=$?
+	set -e
+	[ "$rc" = 1 ] || fail "apply failure was not propagated"
+	[ "$reset_nft" = 1 ] || fail "apply failure did not remove nftables rules"
+	[ "$reset_policy" = 1 ] || fail "apply failure did not remove policy routing"
+
+	rm "$ssrules_nft"
+	rmdir "$test_dir"
+)
+
+test_rule_failure_keeps_redir() (
+	registered=""
+	rules_rc=1
+	ssrules_uc=/dev/null
+	procd_lock() { :; }
+	mkdir() { :; }
+	config_load() { :; }
+	config_foreach() {
+		callback="$1"
+		cfgtype="$2"
+		"$callback" "${cfgtype#ss_}-main" "$cfgtype"
+	}
+	ss_xxx() {
+		registered="$registered $2.$1"
+	}
+	ss_rules() { return "$rules_rc"; }
+
+	set +e
+	start_service
+	rc=$?
+	set -e
+	[ "$rc" = 1 ] || fail "failed rule application was not propagated"
+	case "$registered" in
+		*" ss_redir.redir-main"*) ;;
+		*) fail "redir was stopped by a rule failure" ;;
+	esac
+	for expected in ss_local.local-main ss_server.server-main ss_tunnel.tunnel-main; do
+		case "$registered" in
+			*" $expected"*) ;;
+			*) fail "$expected was stopped by a rule failure" ;;
+		esac
+	done
+)
+
 test_config_validation
 test_lifecycle
 test_table_and_priority_conflicts
 test_legacy_cleanup
+test_redir_semantics
+test_apply_failure_disables_rules
+test_rule_failure_keeps_redir
 echo "ss-rules policy tests: OK"

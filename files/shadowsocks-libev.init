@@ -107,10 +107,10 @@ ss_rules_cb() {
 		config_get server "$cfgserver" server
 		ss_redir_servers="$ss_redir_servers $server"
 		if [ "$mode" = tcp_only -o "$mode" = "tcp_and_udp" ]; then
-			eval "ss_rules_redir_tcp_$cfg=$local_port"
+			ss_rules_redir_tcp_sections="$ss_rules_redir_tcp_sections $cfg"
 		fi
 		if [ "$mode" = udp_only -o "$mode" = "tcp_and_udp" ]; then
-			eval "ss_rules_redir_udp_$cfg=$local_port"
+			ss_rules_redir_udp_sections="$ss_rules_redir_udp_sections $cfg"
 		fi
 	fi
 }
@@ -125,6 +125,62 @@ ss_rules_u32() {
 	echo "$value" | grep -Eq '^(0x[0-9a-fA-F]+|0|[1-9][0-9]*)$' || return 1
 	[ "$((value))" -ge 0 ] 2>/dev/null || return 1
 	[ "$((value))" -le 4294967295 ] 2>/dev/null || return 1
+}
+
+ss_rules_list_has() {
+	local needle="$1"
+	local list="$2"
+	local item
+
+	for item in $list; do
+		[ "$item" = "$needle" ] && return 0
+	done
+	return 1
+}
+
+ss_rules_redir_port() {
+	local redir="$1"
+	local protocol="$2"
+	local cfgtype disabled mode local_port sections
+
+	config_get cfgtype "$redir" TYPE
+	[ "$cfgtype" = ss_redir ] || {
+		ss_rules_log "$protocol redir '$redir' does not exist"
+		return 1
+	}
+	validate_ss_redir_section "$redir" || {
+		ss_rules_log "$protocol redir '$redir' has invalid configuration"
+		return 1
+	}
+	config_get_bool disabled "$redir" disabled 0
+	[ "$disabled" = 0 ] || {
+		ss_rules_log "$protocol redir '$redir' is disabled"
+		return 1
+	}
+	config_get mode "$redir" mode tcp_only
+	case "$protocol:$mode" in
+		tcp:tcp_only|tcp:tcp_and_udp)
+			sections="$ss_rules_redir_tcp_sections"
+			;;
+		udp:udp_only|udp:tcp_and_udp)
+			sections="$ss_rules_redir_udp_sections"
+			;;
+		*)
+			ss_rules_log "$protocol redir '$redir' does not enable $protocol mode"
+			return 1
+			;;
+	esac
+	config_get local_port "$redir" local_port
+	[ -n "$local_port" ] || {
+		ss_rules_log "$protocol redir '$redir' has no local port"
+		return 1
+	}
+	ss_rules_list_has "$redir" "$sections" || {
+		ss_rules_log "$protocol redir '$redir' could not be prepared; check its server configuration"
+		return 1
+	}
+
+	ssrules_redir_port="$local_port"
 }
 
 ss_rules_policy_config() {
@@ -299,20 +355,38 @@ ss_rules_nft_gen() {
 	local cfg="ss_rules"
 	local cfgtype
 	local local_port_tcp local_port_udp
-	local remote_servers tmp
+	local remote_servers tmp nft_tmp
 
-	[ -s "$ssrules_uc" ] || return 1
+	[ -s "$ssrules_uc" ] || {
+		ss_rules_log "rule template $ssrules_uc is missing or empty"
+		return 1
+	}
 
 	config_get cfgtype "$cfg" TYPE
-	[ "$cfgtype" = ss_rules ] || return 1
+	[ "$cfgtype" = ss_rules ] || {
+		ss_rules_log "ss_rules configuration section is missing"
+		return 1
+	}
 
 	eval "$(validate_ss_rules_section "$cfg" ss_validate_mklocal)"
-	validate_ss_rules_section "$cfg" || return 1
+	validate_ss_rules_section "$cfg" || {
+		ss_rules_log "ss_rules configuration is invalid"
+		return 1
+	}
 	[ "$disabled" = 0 ] || return 2
 
-	eval local_port_tcp="\$ss_rules_redir_tcp_$redir_tcp"
-	eval local_port_udp="\$ss_rules_redir_udp_$redir_udp"
-	[ -n "$local_port_tcp" -o -n "$local_port_udp" ] || return 1
+	if [ -n "$redir_tcp" ]; then
+		ss_rules_redir_port "$redir_tcp" tcp || return 1
+		local_port_tcp="$ssrules_redir_port"
+	fi
+	if [ -n "$redir_udp" ]; then
+		ss_rules_redir_port "$redir_udp" udp || return 1
+		local_port_udp="$ssrules_redir_port"
+	fi
+	[ -n "$local_port_tcp" -o -n "$local_port_udp" ] || {
+		ss_rules_log "neither TCP nor UDP redir is configured"
+		return 1
+	}
 	if [ -n "$local_port_udp" ]; then
 		ss_rules_policy_config "$tproxy_mark" "$tproxy_mark_mask" \
 			"$tproxy_route_table" "$tproxy_rule_priority" || return 1
@@ -327,7 +401,10 @@ ss_rules_nft_gen() {
 		| xargs -n 1 resolveip \
 		| sort -u)"
 
-	tmp="$(mktemp -d /tmp/ssrules.XXXXXX)" || return 1
+	tmp="$(mktemp -d /tmp/ssrules.XXXXXX)" || {
+		ss_rules_log "failed to create a temporary rule directory"
+		return 1
+	}
 	json_init
 	json_add_string o_remote_servers "$remote_servers"
 	json_add_int o_redir_tcp_port "$local_port_tcp"
@@ -347,7 +424,11 @@ ss_rules_nft_gen() {
 	json_add_string o_nft_udp_extra "$nft_udp_extra"
 	json_add_string o_tproxy_mark "$ssrules_policy_mark"
 	json_add_string o_tproxy_mark_keep_mask "$ssrules_policy_keep_mask"
-	json_dump -i >"$tmp/options.json"
+	if ! json_dump -i >"$tmp/options.json"; then
+		ss_rules_log "failed to write rule rendering options"
+		rm -rf "$tmp"
+		return 1
+	fi
 
 	if ! utpl -S -F "$tmp/options.json" "$ssrules_uc" >"$tmp/rules.nft"; then
 		ss_rules_log "failed to render nftables rules"
@@ -375,8 +456,10 @@ ss_rules_nft_gen() {
 	fi
 
 	if ! cmp -s "$tmp/rules.nft" "$ssrules_nft"; then
-		if ! mv "$tmp/rules.nft" "$ssrules_nft"; then
+		nft_tmp="$ssrules_nft.$$"
+		if ! cp "$tmp/rules.nft" "$nft_tmp" || ! mv "$nft_tmp" "$ssrules_nft"; then
 			ss_rules_log "failed to install generated nftables rules"
+			rm -f "$nft_tmp"
 			rm -rf "$tmp"
 			return 1
 		fi
@@ -392,21 +475,53 @@ ss_rules_nft_gen() {
 ss_rules_nft_reset() {
 	if [ -f "$ssrules_nft" ]; then
 		ss_rules_policy_legacy_reset
-		rm -f "$ssrules_nft"
-		fw4 reload
+		if ! rm -f "$ssrules_nft"; then
+			ss_rules_log "failed to remove generated nftables rules"
+			return 1
+		fi
+		if ! fw4 reload; then
+			ss_rules_log "firewall reload failed while removing ss-rules"
+			return 1
+		fi
 	fi
 }
 
 ss_rules() {
-	if ! ss_rules_nft_gen; then
-		ss_rules_nft_reset
-		ss_rules_policy_reset
-	fi
+	local rc cleanup_rc=0
+
+	ss_rules_nft_gen
+	rc=$?
+	case "$rc" in
+		0)
+			return 0
+			;;
+		2)
+			ss_rules_nft_reset || cleanup_rc=1
+			ss_rules_policy_reset || cleanup_rc=1
+			[ "$cleanup_rc" = 0 ] || {
+				ss_rules_log "failed to disable all active rules"
+				return 1
+			}
+			return 0
+			;;
+		*)
+			ss_rules_nft_reset || cleanup_rc=1
+			ss_rules_policy_reset || cleanup_rc=1
+			if [ "$cleanup_rc" = 0 ]; then
+				ss_rules_log "rule application failed; rules were removed and redir instances keep running"
+			else
+				ss_rules_log "rule application and cleanup failed; check the system log"
+			fi
+			return "$rc"
+			;;
+	esac
 }
 
 start_service() {
 	local cfgtype
 
+	# rc.common serializes stop/reload, but its procd start path is unlocked.
+	procd_lock
 	mkdir -p "$ss_confdir"
 	config_load shadowsocks-libev
 	for cfgtype in ss_local ss_redir ss_server ss_tunnel; do
@@ -416,9 +531,13 @@ start_service() {
 }
 
 stop_service() {
+	local rc=0
+
 	ss_rules_nft_reset
-	ss_rules_policy_reset
+	[ "$?" = 0 ] || rc=1
+	ss_rules_policy_reset || rc=1
 	rm -rf "$ss_confdir"
+	return "$rc"
 }
 
 service_triggers() {

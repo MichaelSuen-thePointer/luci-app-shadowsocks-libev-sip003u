@@ -2,6 +2,9 @@
 	"luci-app-shadowsocks-libev": {
 		"description": "Grant service list access to LuCI app shadowsocks-libev",
 		"read": {
+			"file": {
+				"/etc/nftables.d/90-ss-rules.nft": [ "read" ]
+			},
 			"ubus": {
 				"service": [ "list" ]
 			},

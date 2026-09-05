@@ -48,6 +48,17 @@ function validate_route_table(section_id, value) {
 	return true;
 }
 
+function render_rules_preview(rules_preview) {
+	return E('div', { 'class': 'cbi-section' }, [
+		E('details', {}, [
+			E('summary', {}, _('Generated nftables rules')),
+			E('pre', {
+				'style': 'max-height:32em; overflow:auto; padding:1em; white-space:pre-wrap'
+			}, rules_preview || _('No generated rules are installed.'))
+		])
+	]);
+}
+
 return view.extend({
 	load: function() {
 		return Promise.all([
@@ -56,7 +67,8 @@ return view.extend({
 				if (!uci.get_first(conf, 'ss_rules')) {
 					uci.set(conf, uci.add(conf, 'ss_rules', 'ss_rules'), 'disabled', '1');
 				}
-			})
+			}),
+			L.resolveDefault(fs.read('/etc/nftables.d/90-ss-rules.nft'), '')
 		]);
 	},
 	render: function(stats) {
@@ -163,6 +175,8 @@ return view.extend({
 			_('Default action for packets whose dst address do not match any of the dst ip list'));
 		ss.values_actions(o);
 
-		return m.render();
+		return m.render().then(function(node) {
+			return E('div', {}, [ render_rules_preview(stats[2]), node ]);
+		});
 	},
 });

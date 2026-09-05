@@ -5,7 +5,7 @@ sdk="${1:?usage: prepare_shadowsocks_libev_local_feed.sh <sdk-dir> <local-feed-d
 feed="${2:?usage: prepare_shadowsocks_libev_local_feed.sh <sdk-dir> <local-feed-dir> [commit]}"
 source_version="${3:-}"
 
-pkg_version="${SHADOWSOCKS_LIBEV_VERSION:-3.3.6_p1}"
+pkg_version="${SHADOWSOCKS_LIBEV_VERSION:-3.3.6_p2}"
 pkg_release="${SHADOWSOCKS_LIBEV_RELEASE:-1}"
 source_url="${SHADOWSOCKS_LIBEV_SOURCE_URL:-https://github.com/MichaelSuen-thePointer/shadowsocks-libev.git}"
 ss_rules_ip_dep="${SS_RULES_IP_DEP:-ip-tiny}"

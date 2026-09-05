@@ -72,4 +72,4 @@ The force-pushed source has migrated from autotools to CMake and uses PCRE2
 natively. The legacy `100-Upgrade-PCRE-to-PCRE2.patch` must not be applied.
 Component-specific dependencies remain precise: `ss-local` adds `libpcre2`,
 while `ss-server` adds `libcares` and `libpcre2`. Package versions are
-`25.12.5_p1-r1` for LuCI and `3.3.6_p1-r1` for the runtime package source.
+`25.12.5_p2-r1` for LuCI and `3.3.6_p2-r1` for the runtime package source.

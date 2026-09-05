@@ -5,7 +5,7 @@ diff --git a/applications/luci-app-shadowsocks-libev/Makefile b/applications/luc
  
  include $(TOPDIR)/rules.mk
  
-+PKG_VERSION:=25.12.5_p1
++PKG_VERSION:=25.12.5_p2
 +
  LUCI_TITLE:=LuCI Support for shadowsocks-libev
  LUCI_DEPENDS:=+luci-base

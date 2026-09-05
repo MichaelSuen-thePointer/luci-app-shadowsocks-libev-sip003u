@@ -56,7 +56,7 @@ Makefile in the generated local feed:
 - changes the source from the obsolete release tarball to the SIP003U Git
   repository and pins commit
   `d2ae22a3c85a66944535177425042307db71b5be`;
-- sets package version `3.3.6_p1-r1` and source date `2026-09-04`;
+- sets package version `3.3.6_p2-r1` and source date `2026-09-04`;
 - removes `PKG_FIXUP:=autoreconf`, enables `CMAKE_INSTALL`, and includes
   `cmake.mk`;
 - replaces Autotools arguments with `WITH_STATIC=OFF`,
@@ -76,8 +76,14 @@ validates the supported `tcp_only`, `udp_only`, and `tcp_and_udp` values. This
 file replaces the legacy init script in the generated local feed.
 
 `scripts/patch_luci_plugin_mode.py` adds the same option to the LuCI server
-editor. The generated LuCI package version is `25.12.5_p1-r1`, and its direct
+editor. The generated LuCI package version is `25.12.5_p2-r1`, and its direct
 package dependency remains only `luci-base`.
+
+The maintained init script also validates the selected TCP/UDP `ss_redir`
+instances before generating rules. Rule application uses a unique candidate
+directory and atomic include replacement. If validation or application fails,
+the rules and policy routing are removed while `ss_redir` instances keep
+running. LuCI provides a preview of the installed nftables include.
 
 The files under `patches/` document the equivalent 23.05 package and LuCI
 diffs. The 25.12 build applies the maintained init file and Python transforms
@@ -173,13 +179,13 @@ The output directory for x86_64 is:
 Expected output packages are:
 
 ```text
-luci-app-shadowsocks-libev-25.12.5_p1-r1.apk
-shadowsocks-libev-config-3.3.6_p1-r1.apk
-shadowsocks-libev-ss-local-3.3.6_p1-r1.apk
-shadowsocks-libev-ss-redir-3.3.6_p1-r1.apk
-shadowsocks-libev-ss-rules-3.3.6_p1-r1.apk
-shadowsocks-libev-ss-server-3.3.6_p1-r1.apk
-shadowsocks-libev-ss-tunnel-3.3.6_p1-r1.apk
+luci-app-shadowsocks-libev-25.12.5_p2-r1.apk
+shadowsocks-libev-config-3.3.6_p2-r1.apk
+shadowsocks-libev-ss-local-3.3.6_p2-r1.apk
+shadowsocks-libev-ss-redir-3.3.6_p2-r1.apk
+shadowsocks-libev-ss-rules-3.3.6_p2-r1.apk
+shadowsocks-libev-ss-server-3.3.6_p2-r1.apk
+shadowsocks-libev-ss-tunnel-3.3.6_p2-r1.apk
 ```
 
 ### 3. Optional LuCI-only build
@@ -216,10 +222,10 @@ official-feed dependencies:
 
 ```sh
 apk add --allow-untrusted \
-  ./luci-app-shadowsocks-libev-25.12.5_p1-r1.apk \
-  ./shadowsocks-libev-config-3.3.6_p1-r1.apk \
-  ./shadowsocks-libev-ss-redir-3.3.6_p1-r1.apk \
-  ./shadowsocks-libev-ss-rules-3.3.6_p1-r1.apk
+  ./luci-app-shadowsocks-libev-25.12.5_p2-r1.apk \
+  ./shadowsocks-libev-config-3.3.6_p2-r1.apk \
+  ./shadowsocks-libev-ss-redir-3.3.6_p2-r1.apk \
+  ./shadowsocks-libev-ss-rules-3.3.6_p2-r1.apk
 ```
 
 Example server configuration:
@@ -296,7 +302,7 @@ repeatability.
 The files taken from the two legacy commits are stored under
 `vendor/openwrt-23.05/`; see its `README.md` for provenance.
 
-The custom versions use `_p1`, which is valid in OpenWrt 25.12's APK version
+The custom versions use `_p2`, which is valid in OpenWrt 25.12's APK version
 syntax. The old `+sip003u` suffix is not accepted by its APK tooling.
 
 See [docs/shadowsocks-libev-packaging.md](docs/shadowsocks-libev-packaging.md)

@@ -3,7 +3,7 @@ set -eu
 
 feed="${1:?usage: prepare_luci_local_feed.sh <local-feed-dir> <sdk-dir>}"
 sdk="${2:?usage: prepare_luci_local_feed.sh <local-feed-dir> <sdk-dir>}"
-version="${LUCI_PLUGIN_MODE_VERSION:-25.12.5_p1}"
+version="${LUCI_PLUGIN_MODE_VERSION:-25.12.5_p2}"
 
 repo_root="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 vendor_pkg="$repo_root/vendor/openwrt-23.05/luci/applications/luci-app-shadowsocks-libev"
