@@ -14,6 +14,7 @@ ss_bindir=/usr/bin
 
 ssrules_uc="/usr/share/ss-rules/ss-rules.uc"
 ssrules_nft="/etc/nftables.d/90-ss-rules.nft"
+ssrules_policy_state="/var/run/ss-rules-policy-routing"
 
 ss_mkjson_server_conf() {
 	local cfgserver
@@ -114,11 +115,191 @@ ss_rules_cb() {
 	fi
 }
 
+ss_rules_log() {
+	logger -t shadowsocks-libev "ss-rules: $*"
+}
+
+ss_rules_u32() {
+	local value="$1"
+
+	echo "$value" | grep -Eq '^(0x[0-9a-fA-F]+|0|[1-9][0-9]*)$' || return 1
+	[ "$((value))" -ge 0 ] 2>/dev/null || return 1
+	[ "$((value))" -le 4294967295 ] 2>/dev/null || return 1
+}
+
+ss_rules_policy_config() {
+	local mark_raw="$1"
+	local mask_raw="$2"
+	local table_raw="$3"
+	local priority_raw="$4"
+	local mark_num mask_num table_num priority_num
+
+	ss_rules_u32 "$mark_raw" || {
+		ss_rules_log "invalid tproxy_mark '$mark_raw'"
+		return 1
+	}
+	ss_rules_u32 "$mask_raw" || {
+		ss_rules_log "invalid tproxy_mark_mask '$mask_raw'"
+		return 1
+	}
+	ss_rules_u32 "$table_raw" || {
+		ss_rules_log "invalid tproxy_route_table '$table_raw'"
+		return 1
+	}
+	ss_rules_u32 "$priority_raw" || {
+		ss_rules_log "invalid tproxy_rule_priority '$priority_raw'"
+		return 1
+	}
+
+	mark_num="$((mark_raw))"
+	mask_num="$((mask_raw))"
+	table_num="$((table_raw))"
+	priority_num="$((priority_raw))"
+
+	[ "$mark_num" -ne 0 ] || {
+		ss_rules_log "tproxy_mark must not be zero"
+		return 1
+	}
+	[ "$mask_num" -ne 0 ] || {
+		ss_rules_log "tproxy_mark_mask must not be zero"
+		return 1
+	}
+	[ "$((mark_num & mask_num))" -eq "$mark_num" ] || {
+		ss_rules_log "tproxy_mark must not set bits outside tproxy_mark_mask"
+		return 1
+	}
+	case "$table_num" in
+		0|253|254|255)
+			ss_rules_log "tproxy_route_table $table_num is reserved"
+			return 1
+			;;
+	esac
+	[ "$priority_num" -ne 0 ] || {
+		ss_rules_log "tproxy_rule_priority must not be zero"
+		return 1
+	}
+
+	ssrules_policy_mark="$(printf '0x%08x' "$mark_num")"
+	ssrules_policy_mask="$(printf '0x%08x' "$mask_num")"
+	ssrules_policy_keep_mask="$(printf '0x%08x' "$((0xffffffff ^ mask_num))")"
+	ssrules_policy_table="$table_num"
+	ssrules_policy_priority="$priority_num"
+}
+
+ss_rules_policy_state_read() {
+	local state_table state_priority extra
+
+	[ -f "$ssrules_policy_state" ] || return 1
+	read -r state_table state_priority extra <"$ssrules_policy_state" || return 1
+	[ -z "$extra" ] || return 1
+	ss_rules_u32 "$state_table" || return 1
+	ss_rules_u32 "$state_priority" || return 1
+
+	ssrules_state_table="$((state_table))"
+	ssrules_state_priority="$((state_priority))"
+}
+
+ss_rules_policy_table_check() {
+	local family="$1"
+	local routes
+
+	routes="$(ip "$family" -n route show table "$ssrules_policy_table" 2>/dev/null)" || return 1
+	[ -z "$routes" ] || {
+		ss_rules_log "$family routing table $ssrules_policy_table is already in use"
+		return 1
+	}
+}
+
+ss_rules_policy_priority_check() {
+	local family="$1"
+	local rules line
+
+	rules="$(ip "$family" -n rule show 2>/dev/null)" || return 1
+	while IFS= read -r line; do
+		case "$line" in
+			"$ssrules_policy_priority:"*)
+				ss_rules_log "$family rule priority $ssrules_policy_priority is already in use: $line"
+				return 1
+				;;
+		esac
+	done <<-EOF
+	$rules
+	EOF
+}
+
+ss_rules_policy_conflict_check() {
+	local family
+
+	for family in -4 -6; do
+		ss_rules_policy_table_check "$family" || return 1
+		ss_rules_policy_priority_check "$family" || return 1
+	done
+}
+
+ss_rules_policy_reset() {
+	local family
+
+	[ -f "$ssrules_policy_state" ] || return 0
+	if ! ss_rules_policy_state_read; then
+		ss_rules_log "refusing to clean malformed policy-routing state $ssrules_policy_state"
+		return 1
+	fi
+
+	for family in -4 -6; do
+		ip "$family" rule del priority "$ssrules_state_priority" 2>/dev/null || true
+		ip "$family" route flush table "$ssrules_state_table" 2>/dev/null || true
+	done
+	rm -f "$ssrules_policy_state"
+}
+
+ss_rules_policy_setup() {
+	local family state_tmp
+
+	ss_rules_policy_reset || return 1
+	ss_rules_policy_conflict_check || return 1
+
+	state_tmp="$ssrules_policy_state.$$"
+	if ! echo "$ssrules_policy_table $ssrules_policy_priority" >"$state_tmp" \
+		|| ! mv "$state_tmp" "$ssrules_policy_state"; then
+		ss_rules_log "failed to record policy-routing ownership"
+		rm -f "$state_tmp"
+		return 1
+	fi
+
+	for family in -4 -6; do
+		if ! ip "$family" route add local default dev lo table "$ssrules_policy_table"; then
+			ss_rules_log "failed to add $family local route in table $ssrules_policy_table"
+			ss_rules_policy_reset
+			return 1
+		fi
+	done
+	for family in -4 -6; do
+		if ! ip "$family" rule add priority "$ssrules_policy_priority" \
+			fwmark "$ssrules_policy_mark/$ssrules_policy_mask" lookup "$ssrules_policy_table"; then
+			ss_rules_log "failed to add $family policy rule"
+			ss_rules_policy_reset
+			return 1
+		fi
+	done
+}
+
+ss_rules_policy_legacy_reset() {
+	local family
+
+	[ -f "$ssrules_nft" ] || return 0
+	grep -Fq 'meta mark set 1 tproxy' "$ssrules_nft" || return 0
+	ss_rules_log "removing policy-routing entries owned by the legacy mark 1/table 100 rules"
+	for family in -4 -6; do
+		ip "$family" rule del fwmark 1 lookup 100 2>/dev/null || true
+		ip "$family" route del local default dev lo table 100 2>/dev/null || true
+	done
+}
+
 ss_rules_nft_gen() {
 	local cfg="ss_rules"
 	local cfgtype
 	local local_port_tcp local_port_udp
-	local remote_servers
+	local remote_servers tmp
 
 	[ -s "$ssrules_uc" ] || return 1
 
@@ -132,13 +313,21 @@ ss_rules_nft_gen() {
 	eval local_port_tcp="\$ss_rules_redir_tcp_$redir_tcp"
 	eval local_port_udp="\$ss_rules_redir_udp_$redir_udp"
 	[ -n "$local_port_tcp" -o -n "$local_port_udp" ] || return 1
+	if [ -n "$local_port_udp" ]; then
+		ss_rules_policy_config "$tproxy_mark" "$tproxy_mark_mask" \
+			"$tproxy_route_table" "$tproxy_rule_priority" || return 1
+	else
+		ssrules_policy_mark="0x00000000"
+		ssrules_policy_mask="0x00000000"
+		ssrules_policy_keep_mask="0xffffffff"
+	fi
 	remote_servers="$(echo $ss_redir_servers \
 		| tr ' ' '\n' \
 		| sort -u \
 		| xargs -n 1 resolveip \
 		| sort -u)"
 
-	local tmp="/tmp/ssrules"
+	tmp="$(mktemp -d /tmp/ssrules.XXXXXX)" || return 1
 	json_init
 	json_add_string o_remote_servers "$remote_servers"
 	json_add_int o_redir_tcp_port "$local_port_tcp"
@@ -156,31 +345,62 @@ ss_rules_nft_gen() {
 	json_add_string o_dst_default "$dst_default"
 	json_add_string o_nft_tcp_extra "$nft_tcp_extra"
 	json_add_string o_nft_udp_extra "$nft_udp_extra"
-	json_dump -i >"$tmp.json"
+	json_add_string o_tproxy_mark "$ssrules_policy_mark"
+	json_add_string o_tproxy_mark_keep_mask "$ssrules_policy_keep_mask"
+	json_dump -i >"$tmp/options.json"
 
-	if utpl -S -F "$tmp.json" "$ssrules_uc" >"$tmp.nft" \
-		&& ! cmp -s "$tmp.nft" "$ssrules_nft"; then
-		echo "table inet chk {include \"$tmp.nft\";}" >"$tmp.nft.chk"
-		if nft -f "$tmp.nft.chk" -c; then
-			mv "$tmp.nft" "$ssrules_nft"
-			fw4 restart
-		fi
-		rm -f "$tmp.nft.chk"
+	if ! utpl -S -F "$tmp/options.json" "$ssrules_uc" >"$tmp/rules.nft"; then
+		ss_rules_log "failed to render nftables rules"
+		rm -rf "$tmp"
+		return 1
 	fi
-	rm -f "$tmp.json"
-	rm -f "$tmp.nft"
+	echo "table inet chk {include \"$tmp/rules.nft\";}" >"$tmp/check.nft"
+	if ! nft -f "$tmp/check.nft" -c; then
+		ss_rules_log "generated nftables rules failed validation"
+		rm -rf "$tmp"
+		return 1
+	fi
+	ss_rules_policy_legacy_reset
+
+	if [ -n "$local_port_udp" ]; then
+		ss_rules_policy_setup || {
+			rm -rf "$tmp"
+			return 1
+		}
+	else
+		ss_rules_policy_reset || {
+			rm -rf "$tmp"
+			return 1
+		}
+	fi
+
+	if ! cmp -s "$tmp/rules.nft" "$ssrules_nft"; then
+		if ! mv "$tmp/rules.nft" "$ssrules_nft"; then
+			ss_rules_log "failed to install generated nftables rules"
+			rm -rf "$tmp"
+			return 1
+		fi
+		if ! fw4 reload; then
+			ss_rules_log "firewall reload failed"
+			rm -rf "$tmp"
+			return 1
+		fi
+	fi
+	rm -rf "$tmp"
 }
 
 ss_rules_nft_reset() {
 	if [ -f "$ssrules_nft" ]; then
+		ss_rules_policy_legacy_reset
 		rm -f "$ssrules_nft"
-		fw4 restart
+		fw4 reload
 	fi
 }
 
 ss_rules() {
 	if ! ss_rules_nft_gen; then
 		ss_rules_nft_reset
+		ss_rules_policy_reset
 	fi
 }
 
@@ -197,6 +417,7 @@ start_service() {
 
 stop_service() {
 	ss_rules_nft_reset
+	ss_rules_policy_reset
 	rm -rf "$ss_confdir"
 }
 
@@ -301,6 +522,10 @@ validate_ss_rules_section() {
 		'local_default:or("bypass", "forward", "checkdst"):bypass' \
 		'nft_tcp_extra:string' \
 		'nft_udp_extra:string' \
+		'tproxy_mark:string:0x01000000' \
+		'tproxy_mark_mask:string:0xff000000' \
+		'tproxy_route_table:uinteger:1000' \
+		'tproxy_rule_priority:uinteger:100' \
 		'ifnames:maxlength(15)'
 }
 

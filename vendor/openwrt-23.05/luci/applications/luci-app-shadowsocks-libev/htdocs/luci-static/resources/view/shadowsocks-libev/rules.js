@@ -13,6 +13,41 @@ function src_dst_option(s /*, ... */) {
 	o.datatype = 'or(ipaddr,cidr)';
 }
 
+function parse_u32(value) {
+	if (!/^(?:0x[0-9a-fA-F]+|0|[1-9][0-9]*)$/.test(value || ''))
+		return null;
+
+	var n = Number(value);
+	return isFinite(n) && Math.floor(n) === n && n >= 0 && n <= 0xffffffff ? n : null;
+}
+
+function validate_u32_nonzero(section_id, value) {
+	var n = parse_u32(value);
+	return n !== null && n !== 0 ? true : _('Must be an integer between 1 and 4294967295, in decimal or hexadecimal notation');
+}
+
+function parse_decimal_u32(value) {
+	if (!/^(?:0|[1-9][0-9]*)$/.test(value || ''))
+		return null;
+
+	var n = Number(value);
+	return isFinite(n) && Math.floor(n) === n && n >= 0 && n <= 0xffffffff ? n : null;
+}
+
+function validate_decimal_u32_nonzero(section_id, value) {
+	var n = parse_decimal_u32(value);
+	return n !== null && n !== 0 ? true : _('Must be a decimal integer between 1 and 4294967295');
+}
+
+function validate_route_table(section_id, value) {
+	var n = parse_decimal_u32(value);
+	if (n === null || n === 0)
+		return _('Must be a decimal integer between 1 and 4294967295');
+	if (n === 253 || n === 254 || n === 255)
+		return _('Routing tables 253, 254 and 255 are reserved');
+	return true;
+}
+
 return view.extend({
 	load: function() {
 		return Promise.all([
@@ -41,6 +76,7 @@ return view.extend({
 		s.tab('general', _('General Settings'));
 		s.tab('src', _('Source Settings'));
 		s.tab('dst', _('Destination Settings'));
+		s.tab('advanced', _('Advanced Settings'));
 
 		s.taboption('general', form.Flag, 'disabled', _('Disable'));
 		if (!stats[0]) {
@@ -70,6 +106,27 @@ return view.extend({
 		s.taboption('general', form.Value, 'nft_udp_extra',
 			_('Extra udp expression'),
 			_('Extra nftables expression for matching udp traffics, e.g. "udp dport { 53 }"'));
+
+		o = s.taboption('advanced', form.Value, 'tproxy_mark',
+			_('UDP TPROXY mark'),
+			_('Packet mark value used by ss-rules. Choose a bit range not used by other VPN or policy-routing components.'));
+		o.default = '0x01000000';
+		o.validate = validate_u32_nonzero;
+		o = s.taboption('advanced', form.Value, 'tproxy_mark_mask',
+			_('UDP TPROXY mark mask'),
+			_('Only bits selected by this mask are changed. Conflicts with mark bits used by other components are not detected automatically.'));
+		o.default = '0xff000000';
+		o.validate = validate_u32_nonzero;
+		o = s.taboption('advanced', form.Value, 'tproxy_route_table',
+			_('UDP TPROXY routing table'),
+			_('This table must be dedicated to ss-rules and empty before it is first used.'));
+		o.default = '1000';
+		o.validate = validate_route_table;
+		o = s.taboption('advanced', form.Value, 'tproxy_rule_priority',
+			_('UDP TPROXY rule priority'),
+			_('Lower values run first. The priority must not already be used by an IPv4 or IPv6 policy rule.'));
+		o.default = '100';
+		o.validate = validate_decimal_u32_nonzero;
 
 		src_dst_option(s, 'src', form.DynamicList, 'src_ips_bypass',
 			_('Src ip/net bypass'),

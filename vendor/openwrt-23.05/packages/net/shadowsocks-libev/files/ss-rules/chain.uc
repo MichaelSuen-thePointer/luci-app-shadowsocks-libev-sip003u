@@ -50,19 +50,6 @@ if (proto == "tcp") {
 	hook = "prerouting";
 	priority = "mangle";
 	redir_port = o_redir_udp_port;
-	if (system("
-		set -o errexit
-		iprr() {
-			while ip $1 rule del fwmark 1 lookup 100 2>/dev/null; do true; done
-			      ip $1 rule add fwmark 1 lookup 100
-			ip $1 route flush table 100 2>/dev/null || true
-			ip $1 route add local default dev lo table 100
-		}
-		iprr -4
-		iprr -6
-	") != 0) {
-		return ;
-	}
 } else {
 	return;
 }
@@ -116,7 +103,7 @@ chain ss_rules_local_out {
 {%     endif %}
 {%   elif (proto == "udp"): %}
 chain ss_rules_forward_{{ proto }} {
-	meta l4proto udp {{ o_nft_udp_extra }} meta mark set 1 tproxy to :{{ redir_port }};
+	meta l4proto udp {{ o_nft_udp_extra }} meta mark set (meta mark & {{ o_tproxy_mark_keep_mask }}) | {{ o_tproxy_mark }} tproxy to :{{ redir_port }};
 }
 {%   endif %}
 {% endif %}

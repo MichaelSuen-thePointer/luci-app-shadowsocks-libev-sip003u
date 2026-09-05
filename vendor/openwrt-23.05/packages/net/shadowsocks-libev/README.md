@@ -44,6 +44,10 @@ We can have multiple instances of component and `server` sections.  The relation
 	redir_tcp		name of ss_redir section with mode tcp_only or tcp_and_udp
 	redir_udp		name of ss_redir section with mode udp_only or tcp_and_udp
 	ifnames			only apply rules on packets from these ifnames
+	tproxy_mark		packet mark value used by UDP TPROXY [0x01000000]
+	tproxy_mark_mask	packet mark bits reserved for UDP TPROXY [0xff000000]
+	tproxy_route_table	dedicated UDP TPROXY routing table [1000]
+	tproxy_rule_priority	UDP TPROXY policy rule priority [100]
 
 	--- for incoming packets having source address in
 
