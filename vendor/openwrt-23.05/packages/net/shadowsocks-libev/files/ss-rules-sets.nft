@@ -1,0 +1,29 @@
+# Owned ss-rules sets only. fw4 loads this in the same transaction as rules.
+add set inet fw4 ss_rules_src_bypass { type ipv4_addr; flags interval; auto-merge; }
+flush set inet fw4 ss_rules_src_bypass
+add set inet fw4 ss_rules_src_forward { type ipv4_addr; flags interval; auto-merge; }
+flush set inet fw4 ss_rules_src_forward
+add set inet fw4 ss_rules_src_checkdst { type ipv4_addr; flags interval; auto-merge; }
+flush set inet fw4 ss_rules_src_checkdst
+add set inet fw4 ss_rules_dst_bypass { type ipv4_addr; flags interval; auto-merge; }
+flush set inet fw4 ss_rules_dst_bypass
+add set inet fw4 ss_rules_dst_bypass_ { type ipv4_addr; flags interval; auto-merge; }
+flush set inet fw4 ss_rules_dst_bypass_
+add set inet fw4 ss_rules_dst_forward { type ipv4_addr; flags interval; auto-merge; }
+flush set inet fw4 ss_rules_dst_forward
+add set inet fw4 ss_rules_dst_forward_rrst_ { type ipv4_addr; flags interval; auto-merge; }
+flush set inet fw4 ss_rules_dst_forward_rrst_
+add set inet fw4 ss_rules6_src_bypass { type ipv6_addr; flags interval; auto-merge; }
+flush set inet fw4 ss_rules6_src_bypass
+add set inet fw4 ss_rules6_src_forward { type ipv6_addr; flags interval; auto-merge; }
+flush set inet fw4 ss_rules6_src_forward
+add set inet fw4 ss_rules6_src_checkdst { type ipv6_addr; flags interval; auto-merge; }
+flush set inet fw4 ss_rules6_src_checkdst
+add set inet fw4 ss_rules6_dst_bypass { type ipv6_addr; flags interval; auto-merge; }
+flush set inet fw4 ss_rules6_dst_bypass
+add set inet fw4 ss_rules6_dst_bypass_ { type ipv6_addr; flags interval; auto-merge; }
+flush set inet fw4 ss_rules6_dst_bypass_
+add set inet fw4 ss_rules6_dst_forward { type ipv6_addr; flags interval; auto-merge; }
+flush set inet fw4 ss_rules6_dst_forward
+add set inet fw4 ss_rules6_dst_forward_rrst_ { type ipv6_addr; flags interval; auto-merge; }
+flush set inet fw4 ss_rules6_dst_forward_rrst_

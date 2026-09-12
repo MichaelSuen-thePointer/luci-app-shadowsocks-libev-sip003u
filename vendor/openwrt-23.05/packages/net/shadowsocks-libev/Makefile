@@ -101,6 +101,8 @@ define Package/shadowsocks-libev-ss-rules
 endef
 
 define Package/shadowsocks-libev-ss-rules/install
+	$(INSTALL_DIR) $(1)/usr/share/nftables.d/ruleset-pre
+	$(INSTALL_DATA) ./files/ss-rules-sets.nft $(1)/usr/share/nftables.d/ruleset-pre/90-ss-rules-sets.nft
 	$(INSTALL_DIR) $(1)/usr/share/ss-rules
 	$(INSTALL_DATA) ./files/ss-rules/* $(1)/usr/share/ss-rules/
 endef

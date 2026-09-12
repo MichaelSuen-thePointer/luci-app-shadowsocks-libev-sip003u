@@ -259,7 +259,12 @@ ss_rules_policy_table_check() {
 	local family="$1"
 	local routes
 
-	routes="$(ip "$family" -n route show table "$ssrules_policy_table" 2>/dev/null)" || return 1
+	# -N prints numeric IDs; lowercase -n selects a network namespace.
+	# Dump all tables: querying a not-yet-created table fails with ip-tiny.
+	routes="$(ip "$family" -N route show table all 2>/dev/null)" || return 1
+	routes="$(printf '%s\n' "$routes" | awk -v table="$ssrules_policy_table" '
+		{ for (i = 1; i < NF; i++) if ($i == "table" && $(i + 1) == table) print }
+	')" || return 1
 	[ -z "$routes" ] || {
 		ss_rules_log "$family routing table $ssrules_policy_table is already in use"
 		return 1
@@ -270,7 +275,7 @@ ss_rules_policy_priority_check() {
 	local family="$1"
 	local rules line
 
-	rules="$(ip "$family" -n rule show 2>/dev/null)" || return 1
+	rules="$(ip "$family" -N rule show 2>/dev/null)" || return 1
 	while IFS= read -r line; do
 		case "$line" in
 			"$ssrules_policy_priority:"*)
@@ -349,6 +354,21 @@ ss_rules_policy_legacy_reset() {
 		ip "$family" rule del fwmark 1 lookup 100 2>/dev/null || true
 		ip "$family" route del local default dev lo table 100 2>/dev/null || true
 	done
+}
+
+ss_rules_fw4_reload() {
+	local ruleset
+
+	# Fail closed if auto_includes is disabled or the package asset is missing.
+	ruleset="$(fw4 print)" || return 1
+	case "$ruleset" in
+		*'include "/usr/share/nftables.d/ruleset-pre/90-ss-rules-sets.nft"'*) ;;
+		*)
+			ss_rules_log "ss-rules set replacement include is missing from fw4"
+			return 1
+			;;
+	esac
+	fw4 reload
 }
 
 ss_rules_nft_gen() {
@@ -463,26 +483,30 @@ ss_rules_nft_gen() {
 			rm -rf "$tmp"
 			return 1
 		fi
-		if ! fw4 reload; then
-			ss_rules_log "firewall reload failed"
-			rm -rf "$tmp"
-			return 1
-		fi
+	fi
+	# Reconcile runtime even when generated files have not changed.
+	if ! ss_rules_fw4_reload; then
+		ss_rules_log "firewall reload failed"
+		rm -rf "$tmp"
+		return 1
 	fi
 	rm -rf "$tmp"
 }
 
 ss_rules_nft_reset() {
+	# The common init also runs when the optional ss-rules package is absent.
+	[ -e "$ssrules_uc" ] || [ -e "$ssrules_nft" ] || return 0
+
 	if [ -f "$ssrules_nft" ]; then
 		ss_rules_policy_legacy_reset
 		if ! rm -f "$ssrules_nft"; then
 			ss_rules_log "failed to remove generated nftables rules"
 			return 1
 		fi
-		if ! fw4 reload; then
-			ss_rules_log "firewall reload failed while removing ss-rules"
-			return 1
-		fi
+	fi
+	if ! ss_rules_fw4_reload; then
+		ss_rules_log "firewall reload failed while removing ss-rules"
+		return 1
 	fi
 }
 

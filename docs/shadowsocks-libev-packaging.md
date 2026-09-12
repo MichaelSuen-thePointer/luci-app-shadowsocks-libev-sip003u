@@ -50,6 +50,26 @@ It uses `ip-tiny` rather than the removed legacy `ip` dependency.
 
 ## Build details
 
+### 3.3.6_p2-r2 policy-query correction
+
+The init script now requests numeric routing identifiers with `ip -N`, not
+`ip -n` (which selects a network namespace). It dumps `route show table all`
+and checks exact `table` fields rather than querying the target table directly:
+ip-tiny 6.18 returns an error when a fresh policy table does not exist yet.
+Actual route/rule dump errors still fail closed. Both IPv4 and IPv6 conflict
+checks remain present; defaults for mark, mask, table and priority are unchanged.
+
+This is a packaging/init fix, not a change to the pinned SIP003U C source.
+Local-feed preparation copies `files/shadowsocks-libev.init` into the config
+package and now defaults to release 2. LuCI remains unchanged. Regenerate the
+local feed before rebuilding APKs; do not reuse the old generated init file.
+Do not set `SHADOWSOCKS_LIBEV_RELEASE=1` when building this correction.
+
+Run `sh tests/test_ss_rules_policy.sh` before rebuilding. The mock ip rejects
+wrong query syntax and covers fresh tables, occupied tables/priorities,
+similar numeric IDs, IPv6 conflicts, query failures, and setup/reset lifecycle.
+These tests are not a substitute for an isolated-VM ip-tiny/nftables smoke test.
+
 For the validated x86/64 SDK:
 
 ```sh
@@ -72,4 +92,4 @@ The force-pushed source has migrated from autotools to CMake and uses PCRE2
 natively. The legacy `100-Upgrade-PCRE-to-PCRE2.patch` must not be applied.
 Component-specific dependencies remain precise: `ss-local` adds `libpcre2`,
 while `ss-server` adds `libcares` and `libpcre2`. Package versions are
-`25.12.5_p2-r1` for LuCI and `3.3.6_p2-r1` for the runtime package source.
+`25.12.5_p2-r1` for LuCI and `3.3.6_p2-r2` for the runtime package source.

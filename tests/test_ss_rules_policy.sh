@@ -34,11 +34,11 @@ test_lifecycle() (
 		family="$1"
 		shift
 		case "$*" in
-			"-n route show table 1000")
-				[ -f "$ssrules_policy_state" ] && echo "local default dev lo scope host"
+			"-N route show table all")
+				[ -f "$ssrules_policy_state" ] && echo "local default dev lo table 1000 scope host"
 				return 0
 				;;
-			"-n rule show")
+			"-N rule show")
 				echo "0: from all lookup local"
 				[ -f "$ssrules_policy_state" ] \
 					&& echo "100: from all fwmark 0x1000000/0xff000000 lookup 1000"
@@ -90,21 +90,21 @@ test_table_and_priority_conflicts() (
 		family="$1"
 		shift
 		case "$*:$mode" in
-			"-n route show table 1000:table")
-				echo "default via 192.0.2.1 dev eth0"
+			"-N route show table all:table")
+				echo "default via 192.0.2.1 dev eth0 table 1000"
 				return 0
 				;;
-			"-n route show table 1000:"*) return 0 ;;
-			"-n rule show:priority")
+			"-N route show table all:"*) return 0 ;;
+			"-N rule show:priority")
 				echo "100: from all lookup 2000"
 				return 0
 				;;
-			"-n rule show:mark")
+			"-N rule show:mark")
 				echo "5000: from all fwmark 0x1000000/0xff000000 lookup 5000"
 				return 0
 				;;
-			"-n rule show:"*) return 0 ;;
-			*) return 0 ;;
+			"-N rule show:"*) return 0 ;;
+			*) return 255 ;;
 		esac
 	}
 
@@ -116,6 +116,51 @@ test_table_and_priority_conflicts() (
 	mode=mark
 	ss_rules_policy_conflict_check || fail "mark-only conflict was unexpectedly rejected"
 	rmdir "$test_dir" || fail "test directory is not empty"
+)
+
+test_iproute_queries() (
+	logger() { :; }
+	ss_rules_policy_config 0x01000000 0xff000000 1000 100
+	mode=empty
+	ip() {
+		family="$1"
+		shift
+		# Reject accidental namespace selection and per-table queries. A fresh
+		# table does not exist yet; real ip-tiny returns 2 for that query.
+		case "$*" in
+			"-N route show table all")
+				case "$mode:$family" in
+					fail-route:*) return 2 ;;
+					empty:*) return 0 ;;
+					occupied6:-6) echo "local ::/0 dev lo table 1000 proto kernel" ;;
+					*)
+						echo "default via 192.0.2.1 dev eth0"
+						echo "local default dev lo table 10001"
+						echo "local default dev lo table 100"
+						;;
+				 esac
+				;;
+			"-N rule show")
+				case "$mode:$family" in
+					fail-rule:*) return 2 ;;
+					priority6:-6) echo "100: from all lookup 2000" ;;
+					*) echo "1000: from all lookup 1000" ;;
+				esac
+				;;
+			*) return 255 ;;
+		esac
+	}
+	ss_rules_policy_conflict_check || fail "empty routing dump was rejected"
+	mode=similar
+	ss_rules_policy_conflict_check || fail "unrelated tables or priority rejected"
+	mode=occupied6
+	! ss_rules_policy_conflict_check || fail "IPv6 table conflict was accepted"
+	mode=priority6
+	! ss_rules_policy_conflict_check || fail "IPv6 priority conflict was accepted"
+	mode=fail-route
+	! ss_rules_policy_conflict_check || fail "failed route dump was treated as empty"
+	mode=fail-rule
+	! ss_rules_policy_conflict_check || fail "failed rule dump was treated as empty"
 )
 
 test_legacy_cleanup() (
@@ -250,6 +295,7 @@ test_rule_failure_keeps_redir() (
 test_config_validation
 test_lifecycle
 test_table_and_priority_conflicts
+test_iproute_queries
 test_legacy_cleanup
 test_redir_semantics
 test_apply_failure_disables_rules

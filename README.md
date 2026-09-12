@@ -56,7 +56,7 @@ Makefile in the generated local feed:
 - changes the source from the obsolete release tarball to the SIP003U Git
   repository and pins commit
   `d2ae22a3c85a66944535177425042307db71b5be`;
-- sets package version `3.3.6_p2-r1` and source date `2026-09-04`;
+- sets package version `3.3.6_p2-r2` and source date `2026-09-04`;
 - removes `PKG_FIXUP:=autoreconf`, enables `CMAKE_INSTALL`, and includes
   `cmake.mk`;
 - replaces Autotools arguments with `WITH_STATIC=OFF`,
@@ -180,12 +180,12 @@ Expected output packages are:
 
 ```text
 luci-app-shadowsocks-libev-25.12.5_p2-r1.apk
-shadowsocks-libev-config-3.3.6_p2-r1.apk
-shadowsocks-libev-ss-local-3.3.6_p2-r1.apk
-shadowsocks-libev-ss-redir-3.3.6_p2-r1.apk
-shadowsocks-libev-ss-rules-3.3.6_p2-r1.apk
-shadowsocks-libev-ss-server-3.3.6_p2-r1.apk
-shadowsocks-libev-ss-tunnel-3.3.6_p2-r1.apk
+shadowsocks-libev-config-3.3.6_p2-r2.apk
+shadowsocks-libev-ss-local-3.3.6_p2-r2.apk
+shadowsocks-libev-ss-redir-3.3.6_p2-r2.apk
+shadowsocks-libev-ss-rules-3.3.6_p2-r2.apk
+shadowsocks-libev-ss-server-3.3.6_p2-r2.apk
+shadowsocks-libev-ss-tunnel-3.3.6_p2-r2.apk
 ```
 
 ### 3. Optional LuCI-only build
@@ -223,9 +223,9 @@ official-feed dependencies:
 ```sh
 apk add --allow-untrusted \
   ./luci-app-shadowsocks-libev-25.12.5_p2-r1.apk \
-  ./shadowsocks-libev-config-3.3.6_p2-r1.apk \
-  ./shadowsocks-libev-ss-redir-3.3.6_p2-r1.apk \
-  ./shadowsocks-libev-ss-rules-3.3.6_p2-r1.apk
+  ./shadowsocks-libev-config-3.3.6_p2-r2.apk \
+  ./shadowsocks-libev-ss-redir-3.3.6_p2-r2.apk \
+  ./shadowsocks-libev-ss-rules-3.3.6_p2-r2.apk
 ```
 
 Example server configuration:
