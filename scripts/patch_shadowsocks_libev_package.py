@@ -24,7 +24,7 @@ def main() -> None:
         "\n"
         "PKG_SOURCE_PROTO:=git\n"
         f"PKG_SOURCE_URL:={args.source_url}\n"
-        "PKG_SOURCE_DATE:=2026-09-04\n"
+        "PKG_SOURCE_DATE:=2026-09-23\n"
         f"PKG_SOURCE_VERSION:={args.source_version}\n"
         "PKG_MIRROR_HASH:=skip"
     )
@@ -45,6 +45,10 @@ def main() -> None:
     text = text.replace("PKG_FIXUP:=autoreconf\n", "")
     text = text.replace("PKG_INSTALL:=1\n", "PKG_INSTALL:=1\nCMAKE_INSTALL:=1\n")
     text = text.replace(
+        "URL:=https://github.com/shadowsocks/shadowsocks-libev",
+        "URL:=https://github.com/MichaelSuen-thePointer/shadowsocks-c",
+    )
+    text = text.replace(
         "include $(INCLUDE_DIR)/package.mk\n",
         "include $(INCLUDE_DIR)/package.mk\ninclude $(INCLUDE_DIR)/cmake.mk\n",
         1,
@@ -53,14 +57,29 @@ def main() -> None:
     text, count = re.subn(
         r"CONFIGURE_ARGS \+= \\\n(?:\t.*\\?\n)+\n",
         "CMAKE_OPTIONS += \\\n"
+        "\t-DSS_DEPENDENCY_MODE=system \\\n"
         "\t-DWITH_STATIC=OFF \\\n"
-        "\t-DWITH_EMBEDDED_SRC=ON \\\n"
+        "\t-DSS_BUILD_STATIC_LIBRARY=OFF \\\n"
+        "\t-DSS_BUILD_SHARED_LIBRARY=OFF \\\n"
+        "\t-DWITH_SS_MANAGER=OFF \\\n"
         "\t-DBUILD_TESTING=OFF\n\n",
         text,
         count=1,
     )
     if count != 1:
         raise SystemExit("failed to replace autotools configure options")
+
+    text = text.replace("PKG_BUILD_DEPENDS:=c-ares pcre2", "PKG_BUILD_DEPENDS:=c-ares pcre2 libuv", 1)
+    text = text.replace(
+        "+libev +libmbedtls +libpthread +libsodium +shadowsocks-libev-config",
+        "+libuv +libmbedtls +libpthread +libsodium +shadowsocks-libev-config",
+        1,
+    )
+    text = text.replace("DEPENDS_ss-local = +libpcre2", "DEPENDS_ss-local = +libcares +libpcre2", 1)
+    if ("PKG_BUILD_DEPENDS:=c-ares pcre2 libuv" not in text
+            or "+libuv +libmbedtls" not in text
+            or "DEPENDS_ss-local = +libcares +libpcre2" not in text):
+        raise SystemExit("failed to replace system library dependencies")
 
     text, count = re.subn(
         r"(?m)^(\s*)\+ip(\s*\\)$",

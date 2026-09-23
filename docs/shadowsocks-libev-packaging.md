@@ -59,11 +59,11 @@ ip-tiny 6.18 returns an error when a fresh policy table does not exist yet.
 Actual route/rule dump errors still fail closed. Both IPv4 and IPv6 conflict
 checks remain present; defaults for mark, mask, table and priority are unchanged.
 
-This is a packaging/init fix, not a change to the pinned SIP003U C source.
+That release was a packaging/init fix, not a change to the then-pinned SIP003U C source.
 Local-feed preparation copies `files/shadowsocks-libev.init` into the config
 package and now defaults to release 2. LuCI remains unchanged. Regenerate the
 local feed before rebuilding APKs; do not reuse the old generated init file.
-Do not set `SHADOWSOCKS_LIBEV_RELEASE=1` when building this correction.
+The current `3.3.6_p3-r1` source update supersedes that release.
 
 Run `sh tests/test_ss_rules_policy.sh` before rebuilding. The mock ip rejects
 wrong query syntax and covers fresh tables, occupied tables/priorities,
@@ -78,18 +78,22 @@ scripts/build_all_apks.sh \
   /path/to/local-feed
 ```
 
-The source is pinned to the `feature/sip003u` head following its 2026-09-04
-force-push:
+The source is pinned to the remote `feature/sip003u` head verified on
+2026-09-23:
 
 ```make
 PKG_SOURCE_PROTO:=git
-PKG_SOURCE_URL:=https://github.com/MichaelSuen-thePointer/shadowsocks-libev.git
-PKG_SOURCE_VERSION:=d2ae22a3c85a66944535177425042307db71b5be
+PKG_SOURCE_URL:=https://github.com/MichaelSuen-thePointer/shadowsocks-c.git
+PKG_SOURCE_DATE:=2026-09-23
+PKG_SOURCE_VERSION:=49d2bf68b509f4b5a1c28992828212e5633bd390
 PKG_MIRROR_HASH:=skip
 ```
 
-The force-pushed source has migrated from autotools to CMake and uses PCRE2
-natively. The legacy `100-Upgrade-PCRE-to-PCRE2.patch` must not be applied.
-Component-specific dependencies remain precise: `ss-local` adds `libpcre2`,
-while `ss-server` adds `libcares` and `libpcre2`. Package versions are
-`25.12.5_p2-r1` for LuCI and `3.3.6_p2-r2` for the runtime package source.
+The source uses CMake, libuv, and native PCRE2. The legacy
+`100-Upgrade-PCRE-to-PCRE2.patch` must not be applied. Build with
+`SS_DEPENDENCY_MODE=system` and `WITH_STATIC=OFF`; disable the unneeded
+embedding libraries and `ss-manager`. All executables need `libuv` (the SDK
+emits `libuv1`); `ss-local` and `ss-server` additionally need `libcares` and
+`libpcre2`. Package
+versions are `25.12.5_p2-r1` for LuCI and `3.3.6_p3-r1` for the runtime
+package source. Installed package, UCI, and service names remain unchanged.

@@ -18,7 +18,7 @@ cd "$sdk"
 
 ./scripts/feeds update local
 ./scripts/feeds install -p local luci-app-shadowsocks-libev shadowsocks-libev
-./scripts/feeds install pcre2 c-ares libev mbedtls libsodium iproute2 firewall4 resolveip ucode ucode-mod-fs
+./scripts/feeds install pcre2 c-ares libuv mbedtls libsodium iproute2 firewall4 resolveip ucode ucode-mod-fs
 
 cat > .config <<'EOF'
 # CONFIG_ALL is not set

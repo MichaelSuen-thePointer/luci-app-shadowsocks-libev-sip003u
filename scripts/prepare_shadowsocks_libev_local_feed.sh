@@ -5,9 +5,9 @@ sdk="${1:?usage: prepare_shadowsocks_libev_local_feed.sh <sdk-dir> <local-feed-d
 feed="${2:?usage: prepare_shadowsocks_libev_local_feed.sh <sdk-dir> <local-feed-dir> [commit]}"
 source_version="${3:-}"
 
-pkg_version="${SHADOWSOCKS_LIBEV_VERSION:-3.3.6_p2}"
-pkg_release="${SHADOWSOCKS_LIBEV_RELEASE:-2}"
-source_url="${SHADOWSOCKS_LIBEV_SOURCE_URL:-https://github.com/MichaelSuen-thePointer/shadowsocks-libev.git}"
+pkg_version="${SHADOWSOCKS_LIBEV_VERSION:-3.3.6_p3}"
+pkg_release="${SHADOWSOCKS_LIBEV_RELEASE:-1}"
+source_url="${SHADOWSOCKS_LIBEV_SOURCE_URL:-https://github.com/MichaelSuen-thePointer/shadowsocks-c.git}"
 ss_rules_ip_dep="${SS_RULES_IP_DEP:-ip-tiny}"
 repo_root="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 vendor_pkg="$repo_root/vendor/openwrt-23.05/packages/net/shadowsocks-libev"
@@ -15,8 +15,8 @@ vendor_pkg="$repo_root/vendor/openwrt-23.05/packages/net/shadowsocks-libev"
 pkg="$feed/net/shadowsocks-libev"
 
 if [ -z "$source_version" ]; then
-	# Head of feature/sip003u after its 2026-09-04 force-push, pinned for repeatability.
-	source_version="d2ae22a3c85a66944535177425042307db71b5be"
+	# Verified feature/sip003u remote head on 2026-09-23.
+	source_version="49d2bf68b509f4b5a1c28992828212e5633bd390"
 fi
 
 mkdir -p "$feed/net"
